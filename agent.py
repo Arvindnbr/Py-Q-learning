@@ -2,6 +2,7 @@ import torch
 import random
 import numpy as np
 from collections import deque
+from QNet import QNet, QTrainer, plot
 from snake import SnakeGameAgent, Direction, Point, BLOCK_SIZE
 
 MAX_MEMMORY = 100_000
@@ -14,11 +15,11 @@ class AiAgent:
     def __init__(self):
         self.n_game = 0
         self.epsilon = 0 # randomness
-        self.gamma = 0 #discount-rate
+        self.gamma = 0.8 #discount-rate
         self.memmory = deque(maxlen=MAX_MEMMORY)
 
-        self.model = None
-        self.trainer = None
+        self.model = QNet(11, 512, 3)
+        self.trainer = QTrainer(model=self.model, lr=LR, gamma=self.gamma)
 
     def get_state(self, game):
         head = game.snake[0]
@@ -91,7 +92,7 @@ class AiAgent:
             final_move[move] = 1
         else:
             state0 = torch.tensor(state, dtype = torch.float)
-            pred = self.model.predict(state0)
+            pred = self.model(state0)
             move = torch.argmax(pred).item()
             final_move[move] = 1
         return final_move
@@ -104,6 +105,7 @@ def train():
 
     agent = AiAgent()
     snake = SnakeGameAgent()
+    snake.reset()
 
     while True:
         #old state
@@ -130,8 +132,15 @@ def train():
 
             if score > highest_score:
                 highest_score = score
+                agent.model.save()
 
             print('Game', agent.n_game, 'Score', score)
+
+            plot_score.append(score)
+            total_score += score
+            mean_score = total_score / agent.n_game
+            plot_ms.append(mean_score)
+            plot(plot_score, plot_ms)
 
 if __name__ == "__main__":
     train()
